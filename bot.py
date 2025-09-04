@@ -20,7 +20,7 @@ BOT_TOKEN = "8344746821:AAFAz0akb6KlOLnOefVp1bNHkHM-QWOGeAk"
 OFFICE_CHAT_ID = -4897185289  # Чат для офісних задач
 MASTERS_CHAT_ID = -4847787413  # Чат для майстрів
 PORT = int(os.getenv('PORT', 8000))
-WEBHOOK_URL = os.getenv('WEBHOOK_URL', 'https://marketposlug-bot.onrender.com')
+WEBHOOK_URL = os.getenv('WEBHOOK_URL', 'https://your-actual-render-url.onrender.com')
 
 worker_responses = {}
 
