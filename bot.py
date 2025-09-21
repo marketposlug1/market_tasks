@@ -16,7 +16,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-BOT_TOKEN = "8344746821:AAFAz0akb6KlOLnOefVp1bNHkHM-QWOGeAk"
+BOT_TOKEN = "8344746821:AAFBYCVkjmclVCTXKtOB6CGoLzJWSIWruxg"
 OFFICE_CHAT_ID = -4897185289  # Чат для офісних задач
 MASTERS_CHAT_ID = -4847787413  # Чат для майстрів
 PORT = int(os.getenv('PORT', 8000))
@@ -50,7 +50,6 @@ class TelegramTaskBot:
             "Почнемо! 🚀"
         )
         
-        # Сразу показываем кнопки выбора типа задачи
         keyboard = [
             [InlineKeyboardButton("🔧 Задачі майстрам", callback_data="chat_masters")],
             [InlineKeyboardButton("🏢 Задачі офісу", callback_data="chat_office")]
@@ -86,24 +85,19 @@ class TelegramTaskBot:
         text = update.message.text.strip()
         
         logger.info(f"Processing message from user {user_id}: {text}")
-
         if user_id not in worker_responses:
             await update.message.reply_text("Будь ласка, надішліть /start щоб почати.")
             return
-
         stage = worker_responses[user_id]['stage']
         data = worker_responses[user_id]['data']
-
         if stage == 'ask_executor_name':
             data['executor_name'] = text
             worker_responses[user_id]['stage'] = 'ask_task_description'
             await update.message.reply_text("Опис задачі: 📋")
-
         elif stage == 'ask_task_description':
             data['task_description'] = text
             worker_responses[user_id]['stage'] = 'ask_deadline'
             
-            # Показываем кнопки с дедлайном
             keyboard = [
                 [InlineKeyboardButton("🔴 Терміново зараз", callback_data="deadline_urgent")],
                 [InlineKeyboardButton("🟠 1-2 дні", callback_data="deadline_1_2_days")],
@@ -121,14 +115,12 @@ class TelegramTaskBot:
         
         logger.info(f"CALLBACK QUERY - Button clicked by user {user_id}: {data}")
         
-        # Answer the callback query FIRST to stop loading animation
         try:
             await query.answer()
             logger.info(f"CALLBACK QUERY - Successfully answered callback for user {user_id}")
         except Exception as e:
             logger.error(f"CALLBACK QUERY - Error answering callback: {e}")
             return
-
         if user_id not in worker_responses:
             logger.warning(f"CALLBACK QUERY - User {user_id} not found in worker_responses")
             try:
@@ -136,9 +128,7 @@ class TelegramTaskBot:
             except Exception as e:
                 logger.error(f"CALLBACK QUERY - Error editing message: {e}")
             return
-
         if data.startswith("chat_"):
-            # Выбор типа чата
             chat_types = {
                 "chat_masters": "🔧 Задачі майстрам",
                 "chat_office": "🏢 Задачі офісу"
@@ -147,7 +137,6 @@ class TelegramTaskBot:
             worker_responses[user_id]['data']['chat_type'] = data
             worker_responses[user_id]['data']['chat_type_name'] = selected
             worker_responses[user_id]['stage'] = 'ask_executor_name'
-
             try:
                 await query.edit_message_text(
                     f"Ви вибрали: {selected}\n\n"
@@ -156,9 +145,7 @@ class TelegramTaskBot:
                 logger.info(f"CALLBACK QUERY - User {user_id} selected chat type: {selected}")
             except Exception as e:
                 logger.error(f"CALLBACK QUERY - Error updating message: {e}")
-
         elif data.startswith("deadline_"):
-            # Выбор дедлайна
             deadline_options = {
                 "deadline_urgent": "🔴 Терміново зараз",
                 "deadline_1_2_days": "🟠 1-2 дні",
@@ -169,10 +156,7 @@ class TelegramTaskBot:
             selected = deadline_options.get(data, "Не вказано")
             worker_responses[user_id]['data']['deadline'] = selected
             worker_responses[user_id]['stage'] = 'ready_to_submit'
-
             logger.info(f"CALLBACK QUERY - User {user_id} selected deadline: {selected}")
-
-            # Создаем кнопку отправки
             keyboard = [
                 [InlineKeyboardButton("📤 Відправити завдання", callback_data="submit_task")]
             ]
@@ -187,32 +171,22 @@ class TelegramTaskBot:
                 logger.info(f"CALLBACK QUERY - Successfully updated message for user {user_id}")
             except Exception as e:
                 logger.error(f"CALLBACK QUERY - Error updating message: {e}")
-
         elif data == "submit_task":
             logger.info(f"CALLBACK QUERY - User {user_id} submitting task")
             
             try:
-                # Отправляем задачу в соответствующий чат
                 await self.send_task_from_callback(query, context, user_id)
-                
-                # Удаляем пользователя из responses
                 del worker_responses[user_id]
-                
                 await query.edit_message_text("✅ Ваше завдання успішно відправлено! Дякуємо!")
                 logger.info(f"CALLBACK QUERY - Successfully submitted task for user {user_id}")
-                
             except Exception as e:
                 logger.error(f"CALLBACK QUERY - Error submitting task: {e}")
                 await query.edit_message_text("❌ Помилка відправки завдання. Спробуйте пізніше.")
 
     async def send_task_from_callback(self, query, context: ContextTypes.DEFAULT_TYPE, user_id: int):
-        """Send task when called from callback query"""
         data = worker_responses[user_id]['data']
-        
-        # Определяем в какой чат отправлять
         chat_id = MASTERS_CHAT_ID if data.get('chat_type') == 'chat_masters' else OFFICE_CHAT_ID
         
-        # Формируем красивое сообщение в зависимости от типа чата
         if data.get('chat_type') == 'chat_masters':
             message = (
                 "🔧 НОВЕ ЗАВДАННЯ ДЛЯ МАЙСТРІВ\n\n"
@@ -231,11 +205,9 @@ class TelegramTaskBot:
                 "────────────────────────\n"
                 "🏆 Маркет послуг №1"
             )
-
         await context.bot.send_message(chat_id, message)
 
     async def run_webhook(self):
-        # Initialize the application first
         await self.application.initialize()
         await self.application.start()
         
@@ -246,7 +218,6 @@ class TelegramTaskBot:
                 data = await request.json()
                 logger.info(f"Received webhook data: {data}")
                 
-                # Enhanced logging for callback queries
                 if 'callback_query' in data:
                     logger.info(f"WEBHOOK - Callback query detected: {data['callback_query']}")
                 elif 'message' in data:
@@ -262,7 +233,6 @@ class TelegramTaskBot:
                 
                 logger.info(f"WEBHOOK - Successfully parsed update: {update.update_id}")
                 
-                # Process the update through the application
                 await self.application.process_update(update)
                 logger.info(f"WEBHOOK - Successfully processed update: {update.update_id}")
                 
@@ -286,19 +256,14 @@ class TelegramTaskBot:
         await runner.setup()
         site = web.TCPSite(runner, '0.0.0.0', PORT)
         await site.start()
-
         webhook_url = f"{WEBHOOK_URL}/webhook"
-        
-        # Set webhook with better error handling and forced reset
+
         try:
-            # First, delete any existing webhook
             await self.application.bot.delete_webhook(drop_pending_updates=True)
             logger.info("Deleted existing webhook")
             
-            # Wait a moment
             await asyncio.sleep(2)
             
-            # Set the new webhook
             result = await self.application.bot.set_webhook(
                 url=webhook_url,
                 drop_pending_updates=True,
@@ -307,7 +272,6 @@ class TelegramTaskBot:
             )
             logger.info(f"Webhook встановлено: {webhook_url}, result: {result}")
             
-            # Verify webhook was set
             webhook_info = await self.application.bot.get_webhook_info()
             logger.info(f"Webhook verification: {webhook_info}")
             
@@ -316,8 +280,6 @@ class TelegramTaskBot:
             raise
         
         logger.info("Task Management Bot запущено на webhook")
-
-        # Keep running
         try:
             while True:
                 await asyncio.sleep(3600)
